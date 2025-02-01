@@ -1,255 +1,236 @@
 local FunLib = {}
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local HttpService = game:GetService("HttpService")
 
--- Default user info
-local pfp, user, tag, userinfo = nil, nil, nil, {}
-pcall(function()
-    userinfo = HttpService:JSONDecode(readfile("funlibinfo.txt"))
-end)
-pfp = userinfo["pfp"] or "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png"
-user = userinfo["user"] or LocalPlayer.Name
-tag = userinfo["tag"] or tostring(math.random(1000, 9999))
+function FunLib:CreateWindow(config)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Parent = game.CoreGui
+    screenGui.ResetOnSpawn = false
 
--- Save user info to a file
-local function SaveInfo()
-    userinfo["pfp"] = pfp
-    userinfo["user"] = user
-    userinfo["tag"] = tag
-    writefile("funlibinfo.txt", HttpService:JSONEncode(userinfo))
-end
+    local windowFrame = Instance.new("Frame")
+    windowFrame.Size = UDim2.new(0, config.Size.Width, 0, config.Size.Height)
+    windowFrame.Position = UDim2.new(0, config.Position.X, 0, config.Position.Y)
+    windowFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    windowFrame.BorderSizePixel = 0
+    windowFrame.Parent = screenGui
 
--- Make UI draggable
-local function MakeDraggable(topbarobject, object)
-    local Dragging = nil
-    local DragInput = nil
-    local DragStart = nil
-    local StartPosition = nil
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = config.Title or "Untitled Window"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 18
+    titleLabel.Parent = windowFrame
 
-    local function Update(input)
-        local Delta = input.Position - DragStart
-        local pos = UDim2.new(
-            StartPosition.X.Scale,
-            StartPosition.X.Offset + Delta.X,
-            StartPosition.Y.Scale,
-            StartPosition.Y.Offset + Delta.Y
-        )
-        object.Position = pos
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -30)
+    contentFrame.Position = UDim2.new(0, 0, 0, 30)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = windowFrame
+
+    -- Function to create a button
+    local function CreateButton(buttonConfig)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, 0, 0, 30)
+        button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        button.Text = buttonConfig.Text or "Button"
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Font = Enum.Font.Gotham
+        button.TextSize = 14
+        button.Parent = contentFrame
+
+        button.MouseButton1Click:Connect(function()
+            if buttonConfig.OnClick then
+                buttonConfig.OnClick()
+            end
+        end)
     end
 
-    topbarobject.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            Dragging = true
-            DragStart = input.Position
-            StartPosition = object.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    Dragging = false
+    -- Function to create a toggle
+    local function CreateToggle(toggleConfig)
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(1, 0, 0, 30)
+        toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        toggle.Text = toggleConfig.Text .. ": " .. (toggleConfig.Default and "ON" or "OFF")
+        toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        toggle.Font = Enum.Font.Gotham
+        toggle.TextSize = 14
+        toggle.Parent = contentFrame
+
+        local state = toggleConfig.Default or false
+
+        toggle.MouseButton1Click:Connect(function()
+            state = not state
+            toggle.Text = toggleConfig.Text .. ": " .. (state and "ON" or "OFF")
+            if toggleConfig.OnToggle then
+                toggleConfig.OnToggle(state)
+            end
+        end)
+    end
+
+    -- Function to create a slider
+    local function CreateSlider(sliderConfig)
+        local sliderFrame = Instance.new("Frame")
+        sliderFrame.Size = UDim2.new(1, 0, 0, 30)
+        sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        sliderFrame.Parent = contentFrame
+
+        local sliderLabel = Instance.new("TextLabel")
+        sliderLabel.Size = UDim2.new(1, 0, 0, 15)
+        sliderLabel.BackgroundTransparency = 1
+        sliderLabel.Text = sliderConfig.Text .. ": " .. sliderConfig.Default
+        sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        sliderLabel.Font = Enum.Font.Gotham
+        sliderLabel.TextSize = 14
+        sliderLabel.Parent = sliderFrame
+
+        local sliderBar = Instance.new("Frame")
+        sliderBar.Size = UDim2.new(1, 0, 0, 5)
+        sliderBar.Position = UDim2.new(0, 0, 0, 20)
+        sliderBar.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        sliderBar.Parent = sliderFrame
+
+        local sliderHandle = Instance.new("Frame")
+        sliderHandle.Size = UDim2.new(0, 10, 0, 15)
+        sliderHandle.Position = UDim2.new((sliderConfig.Default - sliderConfig.Min) / (sliderConfig.Max - sliderConfig.Min), 0, 0, 17.5)
+        sliderHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        sliderHandle.Parent = sliderFrame
+
+        local dragging = false
+        local userInputService = game:GetService("UserInputService")
+
+        sliderHandle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+            end
+        end)
+
+        sliderHandle.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+
+        userInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local mousePosition = userInputService:GetMouseLocation().X
+                local relativePosition = (mousePosition - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X
+                local value = math.clamp(sliderConfig.Min + (sliderConfig.Max - sliderConfig.Min) * relativePosition, sliderConfig.Min, sliderConfig.Max)
+                sliderHandle.Position = UDim2.new((value - sliderConfig.Min) / (sliderConfig.Max - sliderConfig.Min), 0, 0, 17.5)
+                sliderLabel.Text = sliderConfig.Text .. ": " .. math.floor(value)
+                if sliderConfig.OnChange then
+                    sliderConfig.OnChange(math.floor(value))
                 end
-            end)
+            end
+        end)
+    end
+
+    -- Function to create a dropdown
+    local function CreateDropdown(dropdownConfig)
+        local dropdownFrame = Instance.new("Frame")
+        dropdownFrame.Size = UDim2.new(1, 0, 0, 30)
+        dropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        dropdownFrame.Parent = contentFrame
+
+        local dropdownButton = Instance.new("TextButton")
+        dropdownButton.Size = UDim2.new(1, 0, 1, 0)
+        dropdownButton.BackgroundTransparency = 1
+        dropdownButton.Text = dropdownConfig.Text .. ": Select Option"
+        dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        dropdownButton.Font = Enum.Font.Gotham
+        dropdownButton.TextSize = 14
+        dropdownButton.Parent = dropdownFrame
+
+        local dropdownMenu = Instance.new("Frame")
+        dropdownMenu.Size = UDim2.new(1, 0, 0, 0)
+        dropdownMenu.Position = UDim2.new(0, 0, 1, 0)
+        dropdownMenu.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        dropdownMenu.Visible = false
+        dropdownMenu.Parent = dropdownFrame
+
+        local function UpdateDropdownMenu()
+            dropdownMenu.Size = UDim2.new(1, 0, 0, #dropdownConfig.Options * 30)
+            for _, child in pairs(dropdownMenu:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child:Destroy()
+                end
+            end
+            for i, option in ipairs(dropdownConfig.Options) do
+                local optionButton = Instance.new("TextButton")
+                optionButton.Size = UDim2.new(1, 0, 0, 30)
+                optionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
+                optionButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                optionButton.Text = option
+                optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                optionButton.Font = Enum.Font.Gotham
+                optionButton.TextSize = 14
+                optionButton.Parent = dropdownMenu
+
+                optionButton.MouseButton1Click:Connect(function()
+                    dropdownButton.Text = dropdownConfig.Text .. ": " .. option
+                    dropdownMenu.Visible = false
+                    if dropdownConfig.OnSelect then
+                        dropdownConfig.OnSelect(option)
+                    end
+                end)
+            end
         end
-    end)
 
-    topbarobject.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            DragInput = input
-        end
-    end)
+        UpdateDropdownMenu()
 
-    UserInputService.InputChanged:Connect(function(input)
-        if input == DragInput and Dragging then
-            Update(input)
-        end
-    end)
-end
+        dropdownButton.MouseButton1Click:Connect(function()
+            dropdownMenu.Visible = not dropdownMenu.Visible
+        end)
+    end
 
--- Create the main GUI
-local FunUI = Instance.new("ScreenGui")
-FunUI.Name = "FunLib"
-FunUI.Parent = game.CoreGui
-FunUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    -- Function to show a notification
+    local function ShowNotification(notificationConfig)
+        local notificationFrame = Instance.new("Frame")
+        notificationFrame.Size = UDim2.new(0, 300, 0, 100)
+        notificationFrame.Position = UDim2.new(0.5, -150, 0.5, -50)
+        notificationFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        notificationFrame.BorderSizePixel = 0
+        notificationFrame.Parent = screenGui
 
--- Function to create a new window
-function FunLib:Window(text)
-    local currentservertoggled = ""
-    local minimized = false
-    local fs = false
-    local settingsopened = false
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, 0, 0, 20)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = notificationConfig.Title or "Notification"
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 16
+        titleLabel.Parent = notificationFrame
 
-    -- Main Frame
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Parent = FunUI
-    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(32, 34, 37)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = true
-    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MainFrame.Size = UDim2.new(0, 681, 0, 396)
+        local messageLabel = Instance.new("TextLabel")
+        messageLabel.Size = UDim2.new(1, 0, 0, 40)
+        messageLabel.Position = UDim2.new(0, 0, 0, 20)
+        messageLabel.BackgroundTransparency = 1
+        messageLabel.Text = notificationConfig.Message or "No message provided."
+        messageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        messageLabel.Font = Enum.Font.Gotham
+        messageLabel.TextSize = 14
+        messageLabel.Parent = notificationFrame
 
-    -- Top Bar
-    local TopFrame = Instance.new("Frame")
-    TopFrame.Name = "TopFrame"
-    TopFrame.Parent = MainFrame
-    TopFrame.BackgroundColor3 = Color3.fromRGB(32, 34, 37)
-    TopFrame.BackgroundTransparency = 1.000
-    TopFrame.BorderSizePixel = 0
-    TopFrame.Position = UDim2.new(0, 0, 0, 0)
-    TopFrame.Size = UDim2.new(0, 681, 0, 28)
+        local closeButton = Instance.new("TextButton")
+        closeButton.Size = UDim2.new(1, 0, 0, 30)
+        closeButton.Position = UDim2.new(0, 0, 0, 60)
+        closeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        closeButton.Text = notificationConfig.ButtonText or "Close"
+        closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeButton.Font = Enum.Font.Gotham
+        closeButton.TextSize = 14
+        closeButton.Parent = notificationFrame
 
-    -- Title
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Parent = TopFrame
-    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Title.BackgroundTransparency = 1.000
-    Title.Position = UDim2.new(0.01, 0, 0, 0)
-    Title.Size = UDim2.new(0, 200, 0, 28)
-    Title.Font = Enum.Font.Gotham
-    Title.Text = text
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 14.000
-    Title.TextXAlignment = Enum.TextXAlignment.Left
+        closeButton.MouseButton1Click:Connect(function()
+            notificationFrame:Destroy()
+        end)
+    end
 
-    -- Close Button
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Name = "CloseBtn"
-    CloseBtn.Parent = TopFrame
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.BackgroundTransparency = 1.000
-    CloseBtn.Position = UDim2.new(0.95, 0, 0, 0)
-    CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-    CloseBtn.Font = Enum.Font.SourceSans
-    CloseBtn.Text = ""
-    CloseBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    CloseBtn.TextSize = 14.000
-
-    -- Close Icon
-    local CloseIcon = Instance.new("ImageLabel")
-    CloseIcon.Name = "CloseIcon"
-    CloseIcon.Parent = CloseBtn
-    CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-    CloseIcon.BackgroundTransparency = 1.000
-    CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    CloseIcon.Size = UDim2.new(0, 16, 0, 16)
-    CloseIcon.Image = "rbxassetid://6031091004"
-
-    -- Minimize Button
-    local MinimizeBtn = Instance.new("TextButton")
-    MinimizeBtn.Name = "MinimizeBtn"
-    MinimizeBtn.Parent = TopFrame
-    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    MinimizeBtn.BackgroundTransparency = 1.000
-    MinimizeBtn.Position = UDim2.new(0.9, 0, 0, 0)
-    MinimizeBtn.Size = UDim2.new(0, 28, 0, 28)
-    MinimizeBtn.Font = Enum.Font.SourceSans
-    MinimizeBtn.Text = ""
-    MinimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    MinimizeBtn.TextSize = 14.000
-
-    -- Minimize Icon
-    local MinimizeIcon = Instance.new("ImageLabel")
-    MinimizeIcon.Name = "MinimizeIcon"
-    MinimizeIcon.Parent = MinimizeBtn
-    MinimizeIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-    MinimizeIcon.BackgroundTransparency = 1.000
-    MinimizeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MinimizeIcon.Size = UDim2.new(0, 16, 0, 16)
-    MinimizeIcon.Image = "rbxassetid://6031091004"
-
-    -- Servers Holder
-    local ServersHolder = Instance.new("Folder")
-    ServersHolder.Name = "ServersHolder"
-    ServersHolder.Parent = MainFrame
-
-    -- User Panel
-    local Userpad = Instance.new("Frame")
-    Userpad.Name = "Userpad"
-    Userpad.Parent = MainFrame
-    Userpad.BackgroundColor3 = Color3.fromRGB(47, 49, 54)
-    Userpad.BorderSizePixel = 0
-    Userpad.Position = UDim2.new(0, 0, 0.9, 0)
-    Userpad.Size = UDim2.new(0, 681, 0, 36)
-
-    -- User Icon
-    local UserIcon = Instance.new("Frame")
-    UserIcon.Name = "UserIcon"
-    UserIcon.Parent = Userpad
-    UserIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    UserIcon.BackgroundTransparency = 1.000
-    UserIcon.Position = UDim2.new(0.02, 0, 0.2, 0)
-    UserIcon.Size = UDim2.new(0, 28, 0, 28)
-
-    -- User Image
-    local UserImage = Instance.new("ImageLabel")
-    UserImage.Name = "UserImage"
-    UserImage.Parent = UserIcon
-    UserImage.BackgroundTransparency = 1.000
-    UserImage.Size = UDim2.new(0, 28, 0, 28)
-    UserImage.Image = pfp
-
-    -- User Name
-    local UserName = Instance.new("TextLabel")
-    UserName.Name = "UserName"
-    UserName.Parent = Userpad
-    UserName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    UserName.BackgroundTransparency = 1.000
-    UserName.Position = UDim2.new(0.1, 0, 0, 0)
-    UserName.Size = UDim2.new(0, 100, 0, 36)
-    UserName.Font = Enum.Font.Gotham
-    UserName.Text = user
-    UserName.TextColor3 = Color3.fromRGB(255, 255, 255)
-    UserName.TextSize = 14.000
-    UserName.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- User Tag
-    local UserTag = Instance.new("TextLabel")
-    UserTag.Name = "UserTag"
-    UserTag.Parent = Userpad
-    UserTag.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    UserTag.BackgroundTransparency = 1.000
-    UserTag.Position = UDim2.new(0.1, 0, 0.5, 0)
-    UserTag.Size = UDim2.new(0, 100, 0, 18)
-    UserTag.Font = Enum.Font.Gotham
-    UserTag.Text = "#" .. tag
-    UserTag.TextColor3 = Color3.fromRGB(185, 187, 190)
-    UserTag.TextSize = 12.000
-    UserTag.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- Make the UI draggable
-    MakeDraggable(TopFrame, MainFrame)
-
-    -- Close Button Functionality
-    CloseBtn.MouseButton1Click:Connect(function()
-        MainFrame:Destroy()
-    end)
-
-    -- Minimize Button Functionality
-    MinimizeBtn.MouseButton1Click:Connect(function()
-        if minimized then
-            MainFrame:TweenSize(UDim2.new(0, 681, 0, 396), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
-            minimized = false
-        else
-            MainFrame:TweenSize(UDim2.new(0, 681, 0, 36), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
-            minimized = true
-        end
-    end)
-
-    -- Return table for additional functions
     return {
-        Notification = function(titletext, desctext, btntext)
-            print("Notification:", titletext, desctext, btntext)
-        end,
-        Toggle = function(name, callback)
-            print("Toggle Created:", name)
-        end,
-        Button = function(name, callback)
-            print("Button Created:", name)
-        end
+        AddButton = CreateButton,
+        AddToggle = CreateToggle,
+        AddSlider = CreateSlider,
+        AddDropdown = CreateDropdown,
+        Notification = ShowNotification
     }
 end
 
