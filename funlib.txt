@@ -1,5 +1,5 @@
--- EnhancedUILibrary ModuleScript
-local EnhancedUILibrary = {}
+-- SuperEnhancedUILibrary ModuleScript
+local SuperEnhancedUILibrary = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -13,10 +13,10 @@ local function create(className, properties)
 end
 
 -- Create a new window with title, size, and position.
-function EnhancedUILibrary:CreateWindow(title, size, position)
+function SuperEnhancedUILibrary:CreateWindow(title, size, position)
     -- ScreenGui container
     local screenGui = create("ScreenGui", {
-        Name = "EnhancedUILibrary",
+        Name = "SuperEnhancedUILibrary",
         ResetOnSpawn = false,
         Parent = game:GetService("CoreGui"),
     })
@@ -92,7 +92,7 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         Parent = mainFrame,
     })
 
-    -- Navigation bar on the left (for tabs)
+    -- Navigation bar on the left (for tabs) with a search bar on top
     local navBar = create("Frame", {
         Name = "NavBar",
         Size = UDim2.new(0, 150, 1, 0),
@@ -101,10 +101,33 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         BorderColor3 = Color3.fromRGB(255, 0, 0),
         Parent = contentFrame,
     })
+
+    -- Search box to filter nav buttons (borrowed idea from extra code)
+    local searchBox = create("TextBox", {
+        Name = "SearchBox",
+        Size = UDim2.new(1, -10, 0, 30),
+        Position = UDim2.new(0, 5, 0, 5),
+        BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+        Text = "Search...",
+        ClearTextOnFocus = true,
+        Font = Enum.Font.Gotham,
+        TextSize = 16,
+        TextColor3 = Color3.new(1,1,1),
+        Parent = navBar,
+    })
+
+    -- Container for nav buttons, below the search box
+    local navButtonsContainer = create("Frame", {
+        Name = "NavButtonsContainer",
+        Size = UDim2.new(1, 0, 1, -40),
+        Position = UDim2.new(0, 0, 0, 40),
+        BackgroundTransparency = 1,
+        Parent = navBar,
+    })
     local navList = create("UIListLayout", {
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 5),
-        Parent = navBar,
+        Parent = navButtonsContainer,
     })
 
     -- Container for tab content: fills the remainder of the window
@@ -184,8 +207,10 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         MinimizeButton = minimizeButton,
         ContentFrame = contentFrame,
         NavBar = navBar,
+        NavButtonsContainer = navButtonsContainer,
         TabContainer = tabContainer,
         Tabs = {},
+        NavButtons = {},
     }
 
     -- Function: Add a new navigation tab with associated content frame.
@@ -195,7 +220,6 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         local button = create("TextButton", {
             Name = tabName .. "NavButton",
             Size = UDim2.new(1, -10, 0, 30),
-            Position = UDim2.new(0, 5, 0, 0),
             BackgroundColor3 = Color3.fromRGB(50, 50, 50),
             BorderSizePixel = 1,
             BorderColor3 = Color3.fromRGB(255, 0, 0),
@@ -203,7 +227,7 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
             TextColor3 = Color3.new(1, 1, 1),
             Font = Enum.Font.Gotham,
             TextSize = 16,
-            Parent = navBar,
+            Parent = navButtonsContainer,
         })
 
         -- Create the associated content frame (hidden by default)
@@ -217,6 +241,7 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         })
 
         window.Tabs[tabName] = tabContent
+        window.NavButtons[tabName] = button
 
         -- When the nav button is clicked, show this tab and hide others.
         button.MouseButton1Click:Connect(function()
@@ -229,9 +254,21 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         end)
     end
 
-    -- Function: Create a slider inside a parent frame.
-    -- sliderText: the label; minValue/maxValue: range; defaultValue: starting value;
-    -- callback(value) is called when the slider is moved.
+    -- Update search functionality: filter nav buttons by tab name
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local searchText = searchBox.Text:lower()
+        for name, button in pairs(window.NavButtons) do
+            button.Visible = name:lower():find(searchText) ~= nil
+        end
+    end)
+
+    ------------------------------------------------------------------------------
+    -- Additional UI Element Functions (borrowed and improved from code.txt)
+    ------------------------------------------------------------------------------
+
+    -- Create a slider inside a given parent.
+    -- sliderText: label; minValue/maxValue: range; defaultValue: starting value;
+    -- callback(value) is called when slider is moved.
     function window:CreateSlider(parent, sliderText, minValue, maxValue, defaultValue, callback)
         local sliderFrame = create("Frame", {
             Name = sliderText .. "Slider",
@@ -318,8 +355,8 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         }
     end
 
-    -- Function: Create a switch toggle inside a parent frame.
-    -- switchText: the label; defaultState: boolean; callback(state) is called when toggled.
+    -- Create a switch toggle inside a given parent.
+    -- switchText: label; defaultState: boolean; callback(state) is called on toggle.
     function window:CreateSwitch(parent, switchText, defaultState, callback)
         local switchFrame = create("Frame", {
             Name = switchText .. "Switch",
@@ -373,7 +410,101 @@ function EnhancedUILibrary:CreateWindow(title, size, position)
         }
     end
 
+    -- Create a dropdown menu inside a given parent.
+    -- dropdownText: the label text; options: a table of option strings;
+    -- callback(option) is called when an option is selected.
+    function window:CreateDropdown(parent, dropdownText, options, callback)
+        local dropdownFrame = create("Frame", {
+            Name = dropdownText .. "Dropdown",
+            Size = UDim2.new(0, 250, 0, 40),
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+            BorderSizePixel = 1,
+            BorderColor3 = Color3.fromRGB(255, 0, 0),
+            Parent = parent,
+        })
+        local dropdownLabel = create("TextLabel", {
+            Name = "DropdownLabel",
+            Size = UDim2.new(0.6, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = dropdownText,
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.Gotham,
+            TextSize = 16,
+            Parent = dropdownFrame,
+        })
+        local dropdownButton = create("TextButton", {
+            Name = "DropdownButton",
+            Size = UDim2.new(0.35, 0, 0.8, 0),
+            Position = UDim2.new(0.65, 0, 0.1, 0),
+            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+            Text = options[1] or "",
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.Gotham,
+            TextSize = 16,
+            BorderSizePixel = 1,
+            BorderColor3 = Color3.fromRGB(255, 0, 0),
+            Parent = dropdownFrame,
+        })
+
+        local expanded = false
+        local optionsFrame = create("Frame", {
+            Name = "OptionsFrame",
+            Size = UDim2.new(0, 250, 0, #options * 30),
+            Position = UDim2.new(0, 0, 1, 0),
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+            BorderSizePixel = 1,
+            BorderColor3 = Color3.fromRGB(255, 0, 0),
+            Visible = false,
+            Parent = dropdownFrame,
+        })
+        local optionsList = create("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = optionsFrame,
+        })
+
+        for _, opt in ipairs(options) do
+            local optionButton = create("TextButton", {
+                Name = opt,
+                Size = UDim2.new(1, 0, 0, 30),
+                BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+                Text = opt,
+                TextColor3 = Color3.new(1, 1, 1),
+                Font = Enum.Font.Gotham,
+                TextSize = 16,
+                BorderSizePixel = 1,
+                BorderColor3 = Color3.fromRGB(255, 0, 0),
+                Parent = optionsFrame,
+            })
+            optionButton.MouseButton1Click:Connect(function()
+                dropdownButton.Text = opt
+                optionsFrame.Visible = false
+                expanded = false
+                if callback then
+                    callback(opt)
+                end
+            end)
+        end
+
+        dropdownButton.MouseButton1Click:Connect(function()
+            expanded = not expanded
+            optionsFrame.Visible = expanded
+        end)
+
+        return {
+            DropdownFrame = dropdownFrame,
+            DropdownLabel = dropdownLabel,
+            DropdownButton = dropdownButton,
+            GetSelected = function()
+                return dropdownButton.Text
+            end
+        }
+    end
+
+    ------------------------------------------------------------------------------
+    -- End of Additional UI Elements
+    ------------------------------------------------------------------------------
+
     return window
 end
 
-return EnhancedUILibrary
+return SuperEnhancedUILibrary
